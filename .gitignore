@@ -140,3 +140,6 @@ config.py
 
 #VS code configuration files
 .vscode
+
+#Datafiles
+data/
