@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 from statsmodels.tsa.arima_model import ARIMA
+from fbprophet import Prophet
+from sklearn.metrics import r2_score
 
 
 def RSME(y_true, y_pred):
@@ -96,3 +98,125 @@ def arima_time_series_cv(data, splits, metric, order=(1,1,1)):
         error.append(metric(test, y_pred))
         
     return error
+
+def walkforward_data_ls(training, test, window):
+    training_list = []
+    test_list = []
+    split_list = test.index[::window]
+
+    for i in range(len(split_list)):
+        date = split_list[i]
+        if i == 0:
+            training_list.append(training)
+            test_list.append(test.loc[date : date+timedelta(window-1)])
+        else:
+            date_train = split_list[i-1]
+            training_list.append(pd.concat([training, test.loc[split_list[0] : date_train+timedelta(window-1)]]))
+            test_list.append(test.loc[date : date+timedelta(window-1)])
+        
+    return training_list, test_list
+
+def walkforward_baseline(y_train, y_test, window=30):
+    ## walkforward baseline mean
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+
+    baseline_pred_list = []
+    for i in range(len(wlk_fwd_y_train)):
+        
+        fit_model = wlk_fwd_y_train[i].mean() # calculate overall mean of training set 
+        # append mean x-times (window) to list
+        baseline_pred_list.append([fit_model for i in range(len(wlk_fwd_y_test[i]))]) 
+
+    # reduce list of lists to a list    
+    baseline_pred_list = np.concatenate(baseline_pred_list).ravel().tolist()
+    baseline_forecast = pd.Series(baseline_pred_list, index=y_test.index) 
+
+    return baseline_forecast
+
+def walkforward_naive(y_train, y_test, window=30):
+    ## walkforward naive approach 
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+
+    pred_list = []
+    for i in range(len(wlk_fwd_y_train)):
+        
+        fit_model = wlk_fwd_y_train[i][-1] # use last values of training set for pred
+        # append mean x-times (window) to list
+        pred_list.append([fit_model for i in range(len(wlk_fwd_y_test[i]))]) 
+
+    # reduce list of lists to a list    
+    pred_list = np.concatenate(pred_list).ravel().tolist()
+    baseline_forecast = pd.Series(pred_list, index=y_test.index) 
+
+    return baseline_forecast
+
+def walkforward_ARIMA(y_train, y_test, arima_order, window=30):
+    ## walkforward ARIMA
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+
+    pred_list = []
+    for i in range(len(wlk_fwd_y_train)):
+        
+        res =  ARIMA(wlk_fwd_y_train[i], order=arima_order).fit() 
+        # append mean x-times (window) to list
+        pred_list.append(res.forecast(window)[0]) 
+
+    # reduce list of lists to a list    
+    pred_list = np.concatenate(pred_list).ravel().tolist()
+    diff = len(pred_list) - len(y_test)
+    forecast = pd.Series(pred_list[:-diff], index=y_test.index) 
+
+    return forecast
+
+def walkforward_Prophet_uni(y_train, y_test, window=30):
+    ## walkforward ARIMA
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+
+    pred_list = []
+    for i in range(len(wlk_fwd_y_train)):
+        
+        training = wlk_fwd_y_train[i].reset_index()
+        training.columns = ['ds', 'y']
+
+        m_prophet = Prophet(yearly_seasonality=True, daily_seasonality=False, weekly_seasonality=False)
+        m_prophet.fit(training)
+        future_frame = m_prophet.make_future_dataframe(periods=window, freq='D', include_history=False)
+        forecast = m_prophet.predict(future_frame)
+        pred_list.append(forecast.yhat.values) 
+
+    # reduce list of lists to a list    
+    pred_list = np.concatenate(pred_list).ravel().tolist()
+    diff = len(pred_list) - len(y_test)
+    forecast_series = pd.Series(pred_list[:-diff], index=y_test.index) 
+
+    return forecast_series
+
+def walkforward_Catboost(model, X_train, y_train, X_test, y_test, window=30):
+    walk_fwd_X_train, walk_fwd_X_test = walkforward_data_ls(X_train, X_test, window)
+    walk_fwd_y_train, walk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+
+    boost_pred_list = []
+    for i in range(len(walk_fwd_X_train)):
+        
+        model.fit(walk_fwd_X_train[i], walk_fwd_y_train[i])
+        boost_pred_list.append(model.predict(walk_fwd_X_test[i]))
+        
+    boost_pred_list = np.concatenate(boost_pred_list).ravel().tolist()
+    boost_forecast = pd.Series(boost_pred_list, index=y_test.index) 
+
+    return boost_forecast
+
+def plot_CV_Catboost(model, X_train, y_train, splits):
+    X_training, X_validation = cv_split(X_train, splits)
+    y_training, y_validation = cv_split(y_train, splits)
+
+    f, ax = plt.subplots(nrows=splits, ncols=1, figsize=(20,15), sharex=True)
+    for i in range(splits):
+        model.fit(X_training[i], y_training[i])
+        prediction = pd.Series(model.predict(X_validation[i]), index=X_validation[i].index)
+        
+        sns.lineplot(x = y_training[i].index, y=y_training[i], label='training', ax=ax[i])
+        sns.lineplot(x = prediction.index, y=prediction, label='CatBoost_prediction', ax=ax[i])
+        sns.lineplot(x = y_validation[i].index, y=y_validation[i], label='validation', ax=ax[i])
+        ax[i].set_title(f'CatBoost - R2: {round(r2_score(y_validation[i], prediction),3)}, RSME: {RSME(y_validation[i], prediction)}, MAE: {MAE(y_validation[i], prediction)}')
+    plt.show()
