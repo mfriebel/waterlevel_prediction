@@ -4,20 +4,29 @@ import seaborn as sns
 from datetime import date, datetime
 from statsmodels.tsa.seasonal import seasonal_decompose
 
-def plot_time_series(dataframe, min_date, max_date, plotsize, sharex=True):
+def plot_time_series(dataframe, min_date, max_date, plotsize, label_dict=None, sharex=True):
     '''Plot time series data'''
+    
     if type(dataframe) == pd.Series:
         f, ax = plt.subplots(nrows=1, ncols=1, figsize=plotsize)
         sns.lineplot(x=dataframe.index, y=dataframe)
         ax.set_xlim([datetime.strptime(min_date, "%Y-%m-%d"), datetime.strptime(max_date, "%Y-%m-%d")])
+        if label_dict == None:
+            None
+        else:
+            ax.set_ylabel(label_dict[dataframe.name])
 
     else:
         f, ax = plt.subplots(nrows=len(dataframe.columns), ncols=1, figsize=plotsize, sharex=sharex)
         for element in enumerate(dataframe.columns):
             sns.lineplot(x=dataframe.index, y=dataframe[element[1]], ax=ax[element[0]])
             ax[element[0]].set_xlim([datetime.strptime(min_date, "%Y-%m-%d"), datetime.strptime(max_date, "%Y-%m-%d")])
-
-    plt.show()
+            
+            if label_dict == None:
+                None
+            else:
+                ax[element[0]].set_ylabel(label_dict[element[1]])
+    return f
 
 def plot_nan_replacement(series, min_date, max_date, plotsize, sharex=True):
     '''Plot replacement of NaN with mean, forward-fill and interploation'''
@@ -48,7 +57,7 @@ def decompose_features(series, period, model_type='additive', plotsize=(20,10), 
     
     return results
 
-def plot_all_decomposed_trends(df, period, min_date, max_date, model_type='additive', plotsize=(20,10), sharex=True):
+def plot_all_decomposed_trends(df, period, min_date, max_date, label_dict, model_type='additive', plotsize=(20,15), sharex=True):
     features = df.columns
 
     f, ax = plt.subplots(nrows=len(features), ncols=1, figsize=plotsize, sharex=sharex)
@@ -57,13 +66,14 @@ def plot_all_decomposed_trends(df, period, min_date, max_date, model_type='addit
         decomposed = seasonal_decompose(df[features[i]], model=model_type, period=period, extrapolate_trend='freq')
         trend = decomposed.trend
         trend = trend.loc[min_date : max_date]
-        sns.lineplot(x=trend.index, y=trend, label=features[i], ax=ax[i])
-        #ax[i].set_ylim([df[features[i]].min(), df[features[i]].max()])
+        sns.lineplot(x=trend.index, y=trend, ax=ax[i])
+        ax[i].set_ylabel(label_dict[features[i]])
+        #ax[i].axvline(x=date(2012, 9, 1), color='grey')
 
-    plt.legend()
-    plt.show()
+    #plt.legend()
+    return f
 
-def plot_all_decomposed_seasonality(df, period, min_date, max_date, model_type='additive', plotsize=(20,10), sharex=True):
+def plot_all_decomposed_seasonality(df, period, min_date, max_date, label_dict, model_type='additive', plotsize=(20,15), sharex=True):
     features = df.columns
 
     f, ax = plt.subplots(nrows=len(features), ncols=1, figsize=plotsize, sharex=sharex)
@@ -72,11 +82,11 @@ def plot_all_decomposed_seasonality(df, period, min_date, max_date, model_type='
         decomposed = seasonal_decompose(df[features[i]], model=model_type, period=period, extrapolate_trend='freq')
         seasonal = decomposed.seasonal
         seasonal = seasonal.loc[min_date : max_date]
-        sns.lineplot(x=seasonal.index, y=seasonal, label=features[i], ax=ax[i])
+        sns.lineplot(x=seasonal.index, y=seasonal, ax=ax[i])
+        ax[i].set_ylabel(label_dict[features[i]])
         #ax[i].set_ylim([df[features[i]].min(), df[features[i]].max()])
 
-    plt.legend()
-    plt.show()
+    return f
 
 def ma_decompose(series, window_trend, window_seasonality):
     trend = series.rolling(window_trend).mean()
