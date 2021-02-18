@@ -103,7 +103,6 @@ def walkforward_data_ls(training, test, window, freq):
      
     if freq == 'W' or freq == '7D':
         date_diff = timedelta(weeks=window-1)
-        print(test.index[::window][0] + date_diff)
     elif freq == 'D':
         date_diff = timedelta(weeks=window-1)
     else:
@@ -125,9 +124,9 @@ def walkforward_data_ls(training, test, window, freq):
         
     return training_list, test_list
 
-def walkforward_baseline(y_train, y_test, window=30):
+def walkforward_baseline(y_train, y_test, freq, window):
     ## walkforward baseline mean
-    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window, freq)
 
     baseline_pred_list = []
     for i in range(len(wlk_fwd_y_train)):
@@ -142,9 +141,9 @@ def walkforward_baseline(y_train, y_test, window=30):
 
     return baseline_forecast
 
-def walkforward_naive(y_train, y_test, window=30):
+def walkforward_naive(y_train, y_test, freq, window):
     ## walkforward naive approach 
-    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window, freq)
 
     pred_list = []
     for i in range(len(wlk_fwd_y_train)):
@@ -159,9 +158,9 @@ def walkforward_naive(y_train, y_test, window=30):
 
     return baseline_forecast
 
-def walkforward_ARIMA(y_train, y_test, arima_order, window=30):
+def walkforward_ARIMA(y_train, y_test, arima_order, freq, window):
     ## walkforward ARIMA
-    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window, freq)
 
     pred_list = []
     for i in range(len(wlk_fwd_y_train)):
@@ -173,13 +172,16 @@ def walkforward_ARIMA(y_train, y_test, arima_order, window=30):
     # reduce list of lists to a list    
     pred_list = np.concatenate(pred_list).ravel().tolist()
     diff = len(pred_list) - len(y_test)
-    forecast = pd.Series(pred_list[:-diff], index=y_test.index) 
+    if diff > 0:
+        forecast = pd.Series(pred_list[:-diff], index=y_test.index)
+    else:
+        forecast = pd.Series(pred_list, index=y_test.index)  
 
     return forecast
 
-def walkforward_Prophet_uni(y_train, y_test, window=30):
+def walkforward_Prophet_uni(y_train, y_test, freq, window):
     ## walkforward ARIMA
-    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+    wlk_fwd_y_train, wlk_fwd_y_test = walkforward_data_ls(y_train, y_test, window, freq)
 
     pred_list = []
     for i in range(len(wlk_fwd_y_train)):
@@ -196,13 +198,16 @@ def walkforward_Prophet_uni(y_train, y_test, window=30):
     # reduce list of lists to a list    
     pred_list = np.concatenate(pred_list).ravel().tolist()
     diff = len(pred_list) - len(y_test)
-    forecast_series = pd.Series(pred_list[:-diff], index=y_test.index) 
+    if diff > 0:
+        forecast = pd.Series(pred_list[:-diff], index=y_test.index)
+    else:
+        forecast = pd.Series(pred_list, index=y_test.index)   
 
-    return forecast_series
+    return forecast
 
-def walkforward_Catboost(model, X_train, y_train, X_test, y_test, window=30):
-    walk_fwd_X_train, walk_fwd_X_test = walkforward_data_ls(X_train, X_test, window)
-    walk_fwd_y_train, walk_fwd_y_test = walkforward_data_ls(y_train, y_test, window)
+def walkforward_Catboost(model, X_train, y_train, X_test, y_test, freq, window):
+    walk_fwd_X_train, walk_fwd_X_test = walkforward_data_ls(X_train, X_test, window, freq)
+    walk_fwd_y_train, walk_fwd_y_test = walkforward_data_ls(y_train, y_test, window, freq)
 
     boost_pred_list = []
     for i in range(len(walk_fwd_X_train)):
