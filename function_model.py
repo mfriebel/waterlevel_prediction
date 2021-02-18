@@ -65,14 +65,14 @@ def series_to_supervised(df, n_in=1, n_out=1, dropnan=True):
         agg.dropna(inplace=True)
     return agg
 
-def plot_model_performance(y_train, y_pred, y_test, title, min_date, max_date, figsize=(20,5)):
-    plt.figure(figsize=figsize)
+def plot_model_performance(y_train, y_pred, y_test, title ,min_date, max_date, figsize=(20,5)):
+    f = plt.figure(figsize=figsize)
     sns.lineplot(x = y_train.index, y=y_train, label='training')
-    sns.lineplot(x = y_pred.index, y=y_pred, label='pred_mean')
+    sns.lineplot(x = y_pred.index, y=y_pred, label='prediction')
     sns.lineplot(x = y_test.index, y=y_test, label='test')
     plt.title(f'{title} -  RSME: {RSME(y_test, y_pred)}, MAE: {MAE(y_test, y_pred)}')
     plt.xlim([datetime.strptime(min_date, "%Y-%m-%d"), datetime.strptime(max_date, "%Y-%m-%d")])
-    plt.show()
+    return f
 
 def walk_forward_prediction_ARIMA(y_train, y_test, window):
     forecast_series = pd.DataFrame(index=y_test.index, columns=[x for x in range(window)])
