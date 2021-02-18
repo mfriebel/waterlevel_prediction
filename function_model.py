@@ -99,7 +99,16 @@ def arima_time_series_cv(data, splits, metric, order=(1,1,1)):
         
     return error
 
-def walkforward_data_ls(training, test, window):
+def walkforward_data_ls(training, test, window, freq):
+     
+    if freq == 'W' or freq == '7D':
+        date_diff = timedelta(weeks=window-1)
+        print(test.index[::window][0] + date_diff)
+    elif freq == 'D':
+        date_diff = timedelta(weeks=window-1)
+    else:
+        raise TypeError 
+    
     training_list = []
     test_list = []
     split_list = test.index[::window]
@@ -108,11 +117,11 @@ def walkforward_data_ls(training, test, window):
         date = split_list[i]
         if i == 0:
             training_list.append(training)
-            test_list.append(test.loc[date : date+timedelta(window-1)])
+            test_list.append(test.loc[date : date+date_diff])
         else:
             date_train = split_list[i-1]
-            training_list.append(pd.concat([training, test.loc[split_list[0] : date_train+timedelta(window-1)]]))
-            test_list.append(test.loc[date : date+timedelta(window-1)])
+            training_list.append(pd.concat([training, test.loc[split_list[0] : date_train+date_diff]]))
+            test_list.append(test.loc[date : date+date_diff])
         
     return training_list, test_list
 
