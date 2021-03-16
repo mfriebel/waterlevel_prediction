@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import date, datetime
-from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.seasonal import seasonal_decompose, STL
 
 def plot_time_series(dataframe, min_date, max_date, plotsize, label_dict=None, sharex=True):
     '''Plot time series data'''
@@ -45,9 +45,21 @@ def plot_nan_replacement(series, min_date, max_date, plotsize, sharex=True):
     plt.legend()
     plt.show()
 
-def decompose_features(series, period, model_type='additive', plotsize=(20,10), sharex=True):
+def naive_seas_decompose(series, period, model_type='additive', plotsize=(20,10), sharex=True):
     '''Plot decomposed (based on moving average) time-series and return results object'''
     results = seasonal_decompose(series, model=model_type, period=period, extrapolate_trend='freq')
+    f, ax = plt.subplots(nrows=4, ncols=1, figsize=plotsize, sharex=sharex)
+    sns.lineplot(x=series.index, y=results.observed, ax=ax[0])
+    sns.lineplot(x=series.index, y=results.trend, ax=ax[1])
+    sns.lineplot(x=series.index, y=results.seasonal, ax=ax[2])
+    sns.lineplot(x=series.index, y=results.resid, ax=ax[3])
+    plt.show()
+    
+    return results
+
+def loess_seas_decompose(series, period, robust = True, plotsize=(20,10), sharex=True):
+    '''Plot decomposed (based on moving average) time-series and return results object'''
+    results = STL(series, robust=robust, seasonal=11, period=period).fit()
     f, ax = plt.subplots(nrows=4, ncols=1, figsize=plotsize, sharex=sharex)
     sns.lineplot(x=series.index, y=results.observed, ax=ax[0])
     sns.lineplot(x=series.index, y=results.trend, ax=ax[1])
@@ -63,7 +75,8 @@ def plot_all_decomposed_trends(df, period, min_date, max_date, label_dict, model
     f, ax = plt.subplots(nrows=len(features), ncols=1, figsize=plotsize, sharex=sharex)
 
     for i in range(len(features)):
-        decomposed = seasonal_decompose(df[features[i]], model=model_type, period=period, extrapolate_trend='freq')
+        #decomposed = seasonal_decompose(df[features[i]], model=model_type, period=period, extrapolate_trend='freq')
+        decomposed = STL(df[features[i]], robust=True, seasonal=11, period=period).fit()
         trend = decomposed.trend
         trend = trend.loc[min_date : max_date]
         sns.lineplot(x=trend.index, y=trend, ax=ax[i])
@@ -79,7 +92,8 @@ def plot_all_decomposed_seasonality(df, period, min_date, max_date, label_dict, 
     f, ax = plt.subplots(nrows=len(features), ncols=1, figsize=plotsize, sharex=sharex)
 
     for i in range(len(features)):
-        decomposed = seasonal_decompose(df[features[i]], model=model_type, period=period, extrapolate_trend='freq')
+        #decomposed = seasonal_decompose(df[features[i]], model=model_type, period=period, extrapolate_trend='freq')
+        decomposed = STL(df[features[i]], robust=True, seasonal=11, period=period).fit()
         seasonal = decomposed.seasonal
         seasonal = seasonal.loc[min_date : max_date]
         sns.lineplot(x=seasonal.index, y=seasonal, ax=ax[i])
