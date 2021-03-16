@@ -143,3 +143,5 @@ config.py
 
 #Datafiles
 data/
+graphs/
+catboost_info/
