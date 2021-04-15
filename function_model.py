@@ -4,7 +4,7 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import pandas as pd
 from statsmodels.tsa.arima_model import ARIMA
-from fbprophet import Prophet
+#from fbprophet import Prophet
 from sklearn.metrics import r2_score
 
 
